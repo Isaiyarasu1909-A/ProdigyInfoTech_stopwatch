@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stopwatch</title>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+        background: #f4f7fa;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      .container {
+        text-align: center;
+      }
+
+      .main-title {
+        font-size: 42px;
+        font-weight: bold;
+        color: #007bff;
+        letter-spacing: 3px;
+        margin-bottom: 20px;
+      }
+
+      .sw-wrap {
+        width: 100%;
+        max-width: 550px;
+        background: #ffffff;
+        padding: 25px;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .sw-display {
+        text-align: center;
+        margin-bottom: 25px;
+      }
+
+      .sw-time {
+        font-size: 70px;
+        font-weight: bold;
+        color: #222;
+      }
+
+      .sw-ms {
+        font-size: 35px;
+        color: #666;
+      }
+
+      .sw-label {
+        margin-top: 10px;
+        color: #888;
+        font-size: 14px;
+        text-transform: uppercase;
+      }
+
+      .sw-controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 25px;
+      }
+
+      .sw-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 15px;
+        transition: 0.3s;
+      }
+
+      .sw-btn:hover {
+        transform: translateY(-2px);
+      }
+
+      .primary {
+        background: #007bff;
+        color: white;
+      }
+
+      .primary:hover {
+        background: #0056b3;
+      }
+
+      .danger {
+        background: #dc3545;
+        color: white;
+      }
+
+      .danger:hover {
+        background: #a71d2a;
+      }
+
+      .sw-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+      }
+
+      .stat-val {
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .stat-lbl {
+        font-size: 12px;
+        color: #777;
+      }
+
+      .sw-laps {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .sw-laps-header {
+        display: flex;
+        justify-content: space-between;
+        background: #007bff;
+        color: white;
+        padding: 12px 15px;
+        font-weight: bold;
+      }
+
+      .lap-list {
+        max-height: 250px;
+        overflow-y: auto;
+      }
+
+      .lap-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 15px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .lap-row:nth-child(even) {
+        background: #f9f9f9;
+      }
+
+      .fastest {
+        background: #d4edda !important;
+        color: #155724;
+      }
+
+      .slowest {
+        background: #f8d7da !important;
+        color: #721c24;
+      }
+
+      .no-laps {
+        text-align: center;
+        padding: 25px;
+        color: #888;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1 class="main-title">STOPWATCH</h1>
+
+      <div class="sw-wrap">
+        <div class="sw-display">
+          <span class="sw-time" id="display">00:00</span>
+          <span class="sw-ms" id="msDisplay">.00</span>
+          <div class="sw-label" id="statusLabel">Ready</div>
+        </div>
+
+        <div class="sw-controls">
+          <button class="sw-btn primary" id="startBtn" onclick="toggleStart()">
+            Start
+          </button>
+          <button class="sw-btn" id="lapBtn" onclick="recordLap()" disabled>
+            Lap
+          </button>
+          <button
+            class="sw-btn danger"
+            id="resetBtn"
+            onclick="resetTimer()"
+            disabled
+          >
+            Reset
+          </button>
+        </div>
+
+        <div class="sw-stats">
+          <div class="stat-card">
+            <div class="stat-val" id="lapCount">0</div>
+            <div class="stat-lbl">Laps</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-val" id="fastLap">--</div>
+            <div class="stat-lbl">Fastest Lap</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-val" id="avgLap">--</div>
+            <div class="stat-lbl">Average Lap</div>
+          </div>
+        </div>
+
+        <div class="sw-laps">
+          <div class="sw-laps-header">
+            <span>Lap</span>
+            <span>Split</span>
+            <span>Time</span>
+          </div>
+
+          <div class="lap-list" id="lapList">
+            <div class="no-laps">No laps recorded yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let running = false;
+      let startTime = 0;
+      let elapsed = 0;
+      let rafId = null;
+
+      let laps = [];
+      let lapStart = 0;
+
+      function fmt(ms) {
+        const s = Math.floor(ms / 1000);
+        const m = Math.floor(s / 60);
+        const ss = s % 60;
+        return String(m).padStart(2, "0") + ":" + String(ss).padStart(2, "0");
+      }
+
+      function fmtMs(ms) {
+        return "." + String(Math.floor((ms % 1000) / 10)).padStart(2, "0");
+      }
+
+      function fmtLap(ms) {
+        const s = Math.floor(ms / 1000);
+        const m = Math.floor(s / 60);
+        const ss = s % 60;
+        const cs = Math.floor((ms % 1000) / 10);
+
+        return (
+          String(m).padStart(2, "0") +
+          ":" +
+          String(ss).padStart(2, "0") +
+          "." +
+          String(cs).padStart(2, "0")
+        );
+      }
+
+      function tick() {
+        elapsed = Date.now() - startTime;
+
+        document.getElementById("display").textContent = fmt(elapsed);
+        document.getElementById("msDisplay").textContent = fmtMs(elapsed);
+
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function toggleStart() {
+        if (!running) {
+          startTime = Date.now() - elapsed;
+
+          if (lapStart === 0) lapStart = Date.now();
+
+          running = true;
+          rafId = requestAnimationFrame(tick);
+
+          document.getElementById("startBtn").textContent = "Pause";
+          document.getElementById("lapBtn").disabled = false;
+          document.getElementById("resetBtn").disabled = false;
+          document.getElementById("statusLabel").textContent = "Running";
+        } else {
+          cancelAnimationFrame(rafId);
+          running = false;
+
+          document.getElementById("startBtn").textContent = "Resume";
+          document.getElementById("statusLabel").textContent = "Paused";
+        }
+      }
+
+      function recordLap() {
+        if (!running) return;
+
+        const now = Date.now();
+
+        laps.unshift({
+          num: laps.length + 1,
+          total: elapsed,
+          split: now - lapStart,
+        });
+
+        lapStart = now;
+
+        renderLaps();
+      }
+
+      function resetTimer() {
+        cancelAnimationFrame(rafId);
+
+        running = false;
+        elapsed = 0;
+        laps = [];
+        lapStart = 0;
+
+        document.getElementById("display").textContent = "00:00";
+        document.getElementById("msDisplay").textContent = ".00";
+        document.getElementById("statusLabel").textContent = "Ready";
+
+        document.getElementById("startBtn").textContent = "Start";
+        document.getElementById("lapBtn").disabled = true;
+        document.getElementById("resetBtn").disabled = true;
+
+        document.getElementById("lapCount").textContent = "0";
+        document.getElementById("fastLap").textContent = "--";
+        document.getElementById("avgLap").textContent = "--";
+
+        document.getElementById("lapList").innerHTML =
+          '<div class="no-laps">No laps recorded yet</div>';
+      }
+
+      function renderLaps() {
+        const sorted = [...laps].sort((a, b) => a.split - b.split);
+
+        const fastest = sorted[0]?.split;
+        const slowest = sorted[sorted.length - 1]?.split;
+
+        const avg = laps.reduce((sum, lap) => sum + lap.split, 0) / laps.length;
+
+        document.getElementById("lapCount").textContent = laps.length;
+        document.getElementById("fastLap").textContent = fmtLap(fastest);
+        document.getElementById("avgLap").textContent = fmtLap(Math.round(avg));
+
+        document.getElementById("lapList").innerHTML = laps
+          .map((lap) => {
+            let cls = "";
+
+            if (laps.length > 1) {
+              if (lap.split === fastest) cls = "fastest";
+              else if (lap.split === slowest) cls = "slowest";
+            }
+
+            return `
+        <div class="lap-row ${cls}">
+            <span>Lap ${lap.num}</span>
+            <span>${fmtLap(lap.split)}</span>
+            <span>${fmtLap(lap.total)}</span>
+        </div>`;
+          })
+          .join("");
+      }
+    </script>
+  </body>
+</html>
